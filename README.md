@@ -13,7 +13,7 @@
 
 ### Installation
 
-```bash
+```
 # Clone the repository
 git clone https://github.com/slyzerui/apk_string_decode.git
 
@@ -22,10 +22,11 @@ cd apk_string_decode
 
 # TODO Set up environment / install dependencies
 
+
 ```
 
----
 
+---
 ## 🧪 Usage
 python main.py  --path <apk_path> --java_signature <java_signature>
 
