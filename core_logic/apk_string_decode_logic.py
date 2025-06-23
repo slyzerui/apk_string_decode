@@ -1,9 +1,10 @@
-from core_logic.apk_string_decode_consts import manifest_backup_path, manifest_path, path_to_extracted_folder, APK_STRING_DECODE_BROADCAST_RECEIVER_NAME, APK_STRING_DECODE_ACTIVITY_NAME, APK_STRING_DECODE_SERVICE_NAME, APK_STRING_DECODE_RUNNABLE_NAME, APK_STRING_DECODE_COMMON_NAME, triggerCallerToDecodeMethod, path_extracted_smali_folder, smali_type_mapping_with_registers, METHOD_BEGIN_PUBLIC_PATTERN_REGEX_COMPILED, END_CLASS_PATTERN_REGEX_COMPILED, DEVICE_TMP_DECODE_FILE_PATH, DEVICE_TMP_DECODE_FILE_PATH, INSTANCES_TO_DECODE_FILE, android_log_tag_to_search, STRING_DECODED_ERROR, MOVE_RESULT_OBJECT_PATTERN_REGEX_COMPILED, PARAMETER_TYPE_TAKING_2_REGISTERS, missing_strings_path, path_to_backup
+from core_logic.apk_string_decode_consts import APK_STRING_DECODE_BROADCAST_RECEIVER_NAME, APK_STRING_DECODE_ACTIVITY_NAME, APK_STRING_DECODE_SERVICE_NAME, APK_STRING_DECODE_RUNNABLE_NAME, APK_STRING_DECODE_COMMON_NAME, triggerCallerToDecodeMethod, smali_type_mapping_with_registers, METHOD_BEGIN_PUBLIC_PATTERN_REGEX_COMPILED, END_CLASS_PATTERN_REGEX_COMPILED, DEVICE_TMP_DECODE_FILE_PATH, DEVICE_TMP_DECODE_FILE_PATH, INSTANCES_TO_DECODE_FILE, android_log_tag_to_search, STRING_DECODED_ERROR, MOVE_RESULT_OBJECT_PATTERN_REGEX_COMPILED, PARAMETER_TYPE_TAKING_2_REGISTERS
 from core_logic.apk_string_decode_logic_clean_static_variables import replace_sget_with_const
 from core_logic.apk_string_decode_logic_utils import updateStatus, fileExistsCaseSensitive, generate_smali_signature_from_java_signature, get_smali_type, resolve_register_count
 from core_logic.apk_string_decode_logic_smali_code import receiver_smali_code, activity_smali_code, service_smali_code, runnable_smali_code, common_smali_code, trigger_decode_method_smali
 from core_logic.apk_string_decode_common_utils import encodeStringIntoBase64, decode_base64_to_hashmap, decodeBase64IntoString, convert_dot_to_slash
 from core_logic.apk_string_decode_android_utils import get_application_class, get_launcher_activity, preparaStringForAndroidDecoding, encodeHashMapToBase64WithDelimiter, sendSplitLogToAndroid, prepareStringForSmali
+from core_logic.apk_string_decode_config import Config
 
 from abc import ABC, abstractmethod
 
@@ -116,18 +117,18 @@ def extractInfoFromJavaCall(java_call):
 def backupManifest(task_thread):
     updateStatus(task_thread, " ----- BACKUP MANIFEST ----- ")
     """Backup the original AndroidManifest.xml to a backup file."""
-    directory = os.path.dirname(manifest_backup_path)
+    directory = os.path.dirname(Config.get_manifest_backup())
     if not os.path.exists(directory):
         os.makedirs(directory)
 
-    shutil.copy2(manifest_path, manifest_backup_path)
-    print(f"Backup created at {manifest_backup_path}")
+    shutil.copy2(Config.get_manifest_path(), Config.get_manifest_backup())
+    print(f"Backup created at {Config.get_manifest_backup()}")
 
 def restoreManifest(task_thread):
     updateStatus(task_thread, " ----- RESTORE MANIFEST ----- ")
     """Restore the AndroidManifest.xml from the backup file."""
-    shutil.copy2(manifest_backup_path, manifest_path)
-    print(f"Manifest restored from backup at {manifest_backup_path}")
+    shutil.copy2(Config.get_manifest_backup(), Config.get_manifest_path())
+    print(f"Manifest restored from backup at {Config.get_manifest_backup()}")
 
 def find_class_location(decompiled_apk_path, class_name):
     class_path = class_name.replace('.', '/') + ".smali"
@@ -156,14 +157,14 @@ def getDecodeClassRelateClassPath(class_package_name):
     return decodeClassLocationPath, decodeClassRelativeClassPath
 
 def getDecodeClassPath(class_package_name):
-    receiverLocationPath, relativeClassPath = find_class_location(path_to_extracted_folder, class_package_name)
+    receiverLocationPath, relativeClassPath = find_class_location(Config.get_extracted_folder(), class_package_name)
     return receiverLocationPath, relativeClassPath
 
 def getReceiverPath():
-    if not manifest_path:
+    if not Config.get_manifest_path():
         return
     
-    rootManifest = parse_manifest(manifest_path)
+    rootManifest = parse_manifest()
     if not rootManifest:
         return
 
@@ -171,7 +172,7 @@ def getReceiverPath():
     application_class = get_application_class(rootManifest)
     if application_class:
         print(f"[INFO] Found Application class: {application_class}")
-        receiverLocationPath, relativeClassPath = find_class_location(path_to_extracted_folder, application_class)
+        receiverLocationPath, relativeClassPath = find_class_location(Config.get_extracted_folder(), application_class)
         if application_class:
             print(f"[INFO] Application class location: {application_class}")
         else:
@@ -180,7 +181,7 @@ def getReceiverPath():
         launcher_activity = get_launcher_activity(rootManifest)
         if launcher_activity:
             print(f"[INFO] No valid Application class found. Using Launcher Activity: {launcher_activity}")
-            receiverLocationPath, relativeClassPath = find_class_location(path_to_extracted_folder, launcher_activity)
+            receiverLocationPath, relativeClassPath = find_class_location(Config.get_extracted_folder(), launcher_activity)
             if launcher_activity:
                 print(f"[INFO] Launcher Activity location: {launcher_activity}")
             else:
@@ -190,9 +191,9 @@ def getReceiverPath():
     
     return receiverLocationPath, relativeClassPath
 
-def parse_manifest(manifest_path):
+def parse_manifest():
     try:
-        tree = ET.parse(manifest_path)
+        tree = ET.parse(Config.get_manifest_path())
         root = tree.getroot()
         return root
     except Exception as e:
@@ -260,7 +261,7 @@ def createSmaliCommon(task_thread, commonLocationPath, relativeClassPath):
 def getPackageNameFromManifest():
     try:
         # Parse the XML file
-        tree = ET.parse(manifest_path)
+        tree = ET.parse(Config.get_manifest_path())
         root = tree.getroot()
 
         # Find the package attribute in the root element
@@ -281,11 +282,10 @@ def injectTriggerOnDecodeClass(task_thread, triggerDecodeClass, triggerDecodeMet
     smali_signature, smali_params, smali_access_flags, smali_names, smali_invoke_static_params, smali_registers = getSmaliInjectTriggerParamters(javaSignature)
 
     try:
-        #trigger_method_folder = path_extracted_smali_folder + convert_dot_to_slash(triggerDecodeClass) + ".smali"
         trigger_method_folder = findTriggeringMethodSmaliClass(triggerDecodeClass)
         
         if not os.path.isfile(trigger_method_folder):
-            decode_class_file = findDecodeClassFile(path_to_extracted_folder, convert_dot_to_slash(triggerDecodeClass))
+            decode_class_file = findDecodeClassFile(Config.get_extracted_folder(), convert_dot_to_slash(triggerDecodeClass))
             if decode_class_file is not None:
                 trigger_method_folder = decode_class_file
         
@@ -331,14 +331,14 @@ def injectTriggerOnDecodeClass(task_thread, triggerDecodeClass, triggerDecodeMet
         updateStatus(task_thread, f"Error: {e}")
 
 def findTriggeringMethodSmaliClass(triggerDecodeClass):
-    trigger_method_folder = path_extracted_smali_folder + convert_dot_to_slash(triggerDecodeClass) + ".smali"
+    trigger_method_folder = Config.get_smali_folder() + convert_dot_to_slash(triggerDecodeClass) + ".smali"
     if fileExistsCaseSensitive(trigger_method_folder):
         return trigger_method_folder
     
     # Search in smali folders
     smali_folders = [
-        os.path.join(path_to_extracted_folder, f)
-        for f in os.listdir(path_to_extracted_folder)
+        os.path.join(Config.get_extracted_folder(), f)
+        for f in os.listdir(Config.get_extracted_folder())
         if f.startswith('smali')
     ]
     escaped_class_name = convert_dot_to_slash(triggerDecodeClass)
@@ -365,7 +365,7 @@ def findTriggeringMethodSmaliClass(triggerDecodeClass):
     return None
 
 def find_smali_directories():
-    return [d for d in glob.glob(os.path.join(path_to_extracted_folder, "smali*")) if os.path.isdir(d)]
+    return [d for d in glob.glob(os.path.join(Config.get_extracted_folder(), "smali*")) if os.path.isdir(d)]
 
 def interface_exists(interface_name):
 
@@ -401,10 +401,10 @@ def removeInjectedMethod(task_thread, triggerDecodeClass):
     updateStatus(task_thread, "----- REMOVE INJECTED METHOD FROM CLASS -----")
 
     try:
-        trigger_method_file = os.path.join(path_extracted_smali_folder, convert_dot_to_slash(triggerDecodeClass) + ".smali")
+        trigger_method_file = os.path.join(Config.get_smali_folder(), convert_dot_to_slash(triggerDecodeClass) + ".smali")
         
         if not os.path.isfile(trigger_method_file):
-            decode_class_file = findDecodeClassFile(path_to_extracted_folder, convert_dot_to_slash(triggerDecodeClass))
+            decode_class_file = findDecodeClassFile(Config.get_extracted_folder(), convert_dot_to_slash(triggerDecodeClass))
             if decode_class_file is not None:
                 trigger_method_file = decode_class_file
 
@@ -514,9 +514,9 @@ def collectParametersFromSmaliFiles(task_thread, package_pattern, method_name, j
         'single_class_analysis': single_class_analysis
     }
 
-    for item in os.listdir(path_to_extracted_folder):
+    for item in os.listdir(Config.get_extracted_folder()):
         #hash_map = collectParametersFromSingleSmaliFile(item, regex, hash_map)
-        item_path = os.path.join(path_to_extracted_folder, item)
+        item_path = os.path.join(Config.get_extracted_folder(), item)
         # Check if the item is a directory and starts with 'smali'
         if os.path.isdir(item_path) and item.startswith('smali'):
             print(f"Processing directory: {item}")
@@ -1925,10 +1925,10 @@ def exportNotReplacedDecodedStrings(task_thread, hash_map_decoded, hash_map_miss
                 #print (key + ":" + hash_map_decoded[key])
 
         # Write the data to a JSON file
-        with open(missing_strings_path, 'w') as file:
+        with open(Config.get_missing_strings_path(), 'w') as file:
             json.dump(data_to_save, file, indent=4)
 
-        print(f"JSON file has been created at {missing_strings_path}")
+        print(f"JSON file has been created at {Config.get_missing_strings_path()}")
 
 
 def compareDictionaries(hash_map_original, hash_map_missing):
@@ -1961,7 +1961,7 @@ def checkIfHasValidDecodedStrings(hash_map_decoded):
 
 def backupSmaliCode():
     # Define the full path for the backup directory
-    backup_root = os.path.join(path_to_extracted_folder, path_to_backup)
+    backup_root = os.path.join(Config.get_extracted_folder(), Config.get_backup_path())
     
     # Create the backup directory if it doesn't exist
     if not os.path.exists(backup_root):
@@ -1976,12 +1976,12 @@ def backupSmaliCode():
                 shutil.rmtree(item_path)
     
     # Walk through the source directory to find directories starting with "smali"
-    for root, dirs, _ in os.walk(path_to_extracted_folder, topdown=True):
+    for root, dirs, _ in os.walk(Config.get_extracted_folder(), topdown=True):
         # Use slicing to iterate through directories as we may modify 'dirs'
         for dir in dirs[:]:
             if dir.startswith("smali"):
                 smali_folder_path = os.path.join(root, dir)
-                backup_folder_path = os.path.join(backup_root, os.path.relpath(smali_folder_path, path_to_extracted_folder))
+                backup_folder_path = os.path.join(backup_root, os.path.relpath(smali_folder_path, Config.get_extracted_folder()))
                 
                 # Copy entire smali folder to backup directory
                 shutil.copytree(smali_folder_path, backup_folder_path)
@@ -1995,7 +1995,7 @@ def check_method_in_smali(class_package_name: str, method_name: str) -> str:
     relative_file_path = class_package_name.replace(".", os.sep) + ".smali"
 
     # Collect all smali folders under ROOT_PATH
-    smali_folders = [os.path.join(path_to_extracted_folder, d) for d in os.listdir(path_to_extracted_folder) if os.path.isdir(os.path.join(path_to_extracted_folder, d)) and "smali" in d]
+    smali_folders = [os.path.join(Config.get_extracted_folder(), d) for d in os.listdir(Config.get_extracted_folder()) if os.path.isdir(os.path.join(Config.get_extracted_folder(), d)) and "smali" in d]
 
     for smali_folder in smali_folders:
         file_path = os.path.join(smali_folder, relative_file_path)
@@ -2011,5 +2011,5 @@ def check_method_in_smali(class_package_name: str, method_name: str) -> str:
             except Exception as e:
                 print(f"Error: Could not read the file '{file_path}'. Details: {e}")
 
-    return f"Error: The method '{method_name}' was not found in any '{class_package_name}' smali files under '{path_to_extracted_folder}'."
+    return f"Error: The method '{method_name}' was not found in any '{class_package_name}' smali files under '{Config.get_extracted_folder()}'."
 

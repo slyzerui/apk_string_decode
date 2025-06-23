@@ -1,5 +1,6 @@
 import sys
 import argparse
+import os
 
 from PyQt5.QtWidgets import QMessageBox, QApplication
 from PyQt5.QtCore import QThread, pyqtSignal, QMutex, QWaitCondition
@@ -12,6 +13,7 @@ from core_logic.apk_string_decode_main_core_logic import decodeWholeApp, decodeW
 from core_logic.apk_string_decode_logic import getExtractedInfoFromJavaSignatureCall
 from core_logic.apk_string_decode_adb_utils import checkPreRequesites
 from core_logic.apk_string_decode_common_utils import registersCurrentTime
+from core_logic.apk_string_decode_config import Config
 
 
 
@@ -121,7 +123,7 @@ def getArguments(arg_list=None):
     parser = argparse.ArgumentParser(description='Process "path" and "java_signature" parameters.')
 
     # Add arguments with flags
-    parser.add_argument('-p', '--path', type=str, required=False, help='The file system path to be processed.')
+    parser.add_argument('-p', '--path', type=str, required=False, help='The apk file path to be processed.')
     parser.add_argument('-s', '--java_signature', type=str, required=False, help='The Java signature to be processed.')
     parser.add_argument('-m', '--multi_processing', type=str, choices=['true', 'false'], required=False, help='If the processing should use a multiple cores. Accepts true or false.')
     parser.add_argument('-r', '--file_rollback', type=str, choices=['true', 'false'], required=False, help='If the app should roll back to the original file in case of a bad compilation')
@@ -131,7 +133,7 @@ def getArguments(arg_list=None):
     parser.add_argument('-g', '--single_class_analysis', type=str, required=False, help='If provided, will only decode the app with the passed class paths')
 
     parser.add_argument('-e', '--strings_handling_process_method', type=int, choices=[0, 1, 2], required=False, help='0 - Will pass Strings using the most optimzed process; 1 - Will pass Strings using local storage (Requires ROOT); 2 - Will Pass Strings using a Broadcast Receiver and logcat')
-
+    parser.add_argument('-f', '--extracted_folder_path', type=str, required=False, help='If provided, will set used as the base extracted folder. Otherwise, it will the same as the provided apk path')
 
     #Use custom arg list if provided (for test_runner)
     args = parser.parse_args(arg_list)
@@ -175,8 +177,9 @@ def getArguments(arg_list=None):
     isCleanStaticVariables = args.clean_static_variables
     single_class_analysis = args.single_class_analysis
     strings_handling_process_method = args.strings_handling_process_method
+    extracted_folder_path = args.extracted_folder_path
 
-    return user_interface, path, java_signature, is_multi_processing, is_file_rollback, isComplexFlow, isCleanStaticVariables, single_class_analysis, strings_handling_process_method
+    return user_interface, path, java_signature, is_multi_processing, is_file_rollback, isComplexFlow, isCleanStaticVariables, single_class_analysis, strings_handling_process_method, extracted_folder_path
 
 
 class MainApplication(QApplication):
@@ -214,7 +217,7 @@ def run(arg_list=None):
     #app = QApplication(sys.argv)
 
     print(" ----- GET ARGUMENTS ----- ")
-    user_interface, apk_path, java_signature, is_multi_processing, is_file_rollback, isComplexFlow, isCleanStaticVariables, single_class_analysis, strings_handling_process_method = getArguments(arg_list)
+    user_interface, apk_path, java_signature, is_multi_processing, is_file_rollback, isComplexFlow, isCleanStaticVariables, single_class_analysis, strings_handling_process_method, extracted_folder_path = getArguments(arg_list)
 
     current_time = registersCurrentTime() 
 
@@ -229,6 +232,12 @@ def run(arg_list=None):
         print(" ----- HANDLEING INPUTS ----- ")
         java_signature, apk_path = showInputsScreen(user_interface)
         
+    if extracted_folder_path is None:
+        extracted_folder_path = os.path.dirname(apk_path)
+
+    Config.set_download_path(extracted_folder_path)
+
+
     print(" ----- SHOW MAIN MENU ----- ")
     main_menu_choice = showMainMenuScreen(user_interface)
  

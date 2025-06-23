@@ -54,5 +54,4 @@ python main.py  --path "/Users/slyzerui/Downloads/my_other_app.apk" --java_signa
 
 '-e', '--strings_handling_process_method', type=int, choices=[0, 1, 2], required=False, help='0 - Will pass Strings using the most optimzed process; 1 - Will pass Strings using local storage (Requires ROOT); 2 - Will Pass Strings using a Broadcast Receiver and logcat'
 
-
-
+'-f', '--extracted_folder_path', type=str, required=False, help='If provided, will set used as the base extracted folder. Otherwise, it will the same as the provided apk path'

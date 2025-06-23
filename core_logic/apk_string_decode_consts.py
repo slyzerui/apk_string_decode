@@ -8,24 +8,23 @@ STRINGS_HANDLING_PROCESS_METHOD_DEFAULT = 0
 STRINGS_HANDLING_PROCESS_METHOD_ROOT = 1
 STRINGS_HANDLING_PROCESS_METHOD_RECEIVERLOGCAT = 2
 
-#Static variables
-path_to_download_folder_path = Path.home() / "Downloads"
-path_to_download_folder = str(path_to_download_folder_path) + "/"
+#path_to_download_folder_path = Path.home() / "Downloads"
+#path_to_download_folder = str(path_to_download_folder_path) + "/"
 
-path_to_extracted_folder = path_to_download_folder + "apk_extracted/"
-manifest_path = path_to_extracted_folder + "AndroidManifest.xml"
-path_extracted_smali_folder = path_to_extracted_folder + "smali/"
-extracted_apk = path_to_download_folder + "modified_extract_app.apk"
-decoded_apk = path_to_download_folder + "decoded_app.apk"
+#path_to_extracted_folder = path_to_download_folder + "apk_extracted/"
+#manifest_path = path_to_extracted_folder + "AndroidManifest.xml"
+#path_extracted_smali_folder = path_to_extracted_folder + "smali/"
+#extracted_apk = path_to_download_folder + "modified_extract_app.apk"
+#decoded_apk = path_to_download_folder + "decoded_app.apk"
 
-missing_strings_path = path_to_download_folder + "missing_strings.json"
+#missing_strings_path = path_to_download_folder + "missing_strings.json"
 
-path_to_backup = path_to_download_folder + "apk_extracted_backup/"
+#path_to_backup = path_to_download_folder + "apk_extracted_backup/"
 
-manifest_backup_path = path_to_backup + "AndroidManifest.xml"
+#manifest_backup_path = path_to_backup + "AndroidManifest.xml"
 
-res_directory_path = path_to_extracted_folder + "res/"
-public_xml_file_path = res_directory_path + "values/public.xml"
+#res_directory_path = path_to_extracted_folder + "res/"
+#public_xml_file_path = res_directory_path + "values/public.xml"
 
 triggerCallerToDecodeMethod = "getTriggerDecodedValue"
 

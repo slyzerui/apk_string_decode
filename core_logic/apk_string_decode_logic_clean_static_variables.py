@@ -1,4 +1,4 @@
-from core_logic.apk_string_decode_consts import path_extracted_smali_folder
+from core_logic.apk_string_decode_config import Config
 from abc import ABC, abstractmethod
 
 import multiprocessing
@@ -28,7 +28,7 @@ def class_to_filepath(class_name):
     to its corresponding file path in the smali directory.
     """
     class_path = class_name[1:].replace('/', os.sep) + ".smali"
-    return os.path.join(path_extracted_smali_folder, class_path)
+    return os.path.join(Config.get_smali_folder(), class_path)
 
 def find_const_string_in_class(class_file, class_name, field_name):
     """

@@ -1,7 +1,8 @@
-from core_logic.apk_string_decode_consts import decoded_apk, res_directory_path, manifest_path, path_to_extracted_folder, triggerCallerToDecodeMethod, APK_STRING_DECODE_ACTIVITY_NAME, extracted_apk, public_xml_file_path, ANDROID_LOG_MAX_ENTRIES_ALLOWED, APK_STRING_DECODE_BROADCAST_RECEIVER_NAME, ANDROID_BROADCAST_COMMAND_MAX_LENGTH, APK_STRING_DECODE_SERVICE_NAME
+from core_logic.apk_string_decode_consts import triggerCallerToDecodeMethod, APK_STRING_DECODE_ACTIVITY_NAME, ANDROID_LOG_MAX_ENTRIES_ALLOWED, APK_STRING_DECODE_BROADCAST_RECEIVER_NAME, ANDROID_BROADCAST_COMMAND_MAX_LENGTH, APK_STRING_DECODE_SERVICE_NAME
 from core_logic.apk_string_decode_common_utils import convert_slash_to_dot, encodeHashMapToBase64WithDelimiter, encodeStringIntoBase64
 from core_logic.apk_string_decode_logic_smali_code import receiver_manifest_content
 from core_logic.apk_string_decode_logic_utils import updateStatus
+from core_logic.apk_string_decode_config import Config
 
 import time
 import subprocess
@@ -187,7 +188,7 @@ def process_xml(file_path, resources_to_remove):
             # Write the modified or original line back to the file
             file.write(modified_line)
 
-def remove_unsupported_manifest_attributes(manifest_path, unsupported_attributes):
+def remove_unsupported_manifest_attributes(unsupported_attributes):
     """
     Removes specific unsupported attributes from the <manifest> tag in AndroidManifest.xml
     without altering the rest of the tag or line.
@@ -195,14 +196,14 @@ def remove_unsupported_manifest_attributes(manifest_path, unsupported_attributes
     :param manifest_path: Path to AndroidManifest.xml.
     :param unsupported_attributes: List of attribute names to remove.
     """
-    if not os.path.exists(manifest_path):
-        print(f"[DEBUG] Manifest file {manifest_path} not found!")
+    if not os.path.exists(Config.get_manifest_path()):
+        print(f"[DEBUG] Manifest file {Config.get_manifest_path()} not found!")
         return
 
-    with open(manifest_path, 'r') as file:
+    with open(Config.get_manifest_path(), 'r') as file:
         lines = file.readlines()
 
-    with open(manifest_path, 'w') as file:
+    with open(Config.get_manifest_path(), 'w') as file:
         for line in lines:
             # Only modify the line if it contains the <manifest> tag
             if '<manifest' in line:
@@ -239,30 +240,30 @@ def handle_problematic_files(error_log):
 
     # Step 3: Fix AndroidManifest.xml Issues
     if "AndroidManifest.xml" in error_log:
-        fix_manifest_namespaces(manifest_path)
+        fix_manifest_namespaces()
         unsupported_attributes = ["android:requiredSplitTypes", "android:splitTypes"]
-        remove_unsupported_manifest_attributes(manifest_path, unsupported_attributes)
+        remove_unsupported_manifest_attributes(unsupported_attributes)
 
     print("Issues handled. Retrying compilation...")
 
-def fix_manifest_namespaces(manifest_path):
+def fix_manifest_namespaces():
     """
     Replaces incorrectly assigned XML namespaces in AndroidManifest.xml.
 
     :param manifest_path: Path to AndroidManifest.xml.
     """
-    if not os.path.exists(manifest_path):
-        print(f"Warning: {manifest_path} not found. Skipping namespace fix.")
+    if not os.path.exists(Config.get_manifest_path()):
+        print(f"Warning: {Config.get_manifest_path()} not found. Skipping namespace fix.")
         return
 
-    with open(manifest_path, "r", encoding="utf-8") as file:
+    with open(Config.get_manifest_path(), "r", encoding="utf-8") as file:
         manifest_content = file.read()
 
     # Detects any namespace prefix (e.g., ns0, ns1, etc.)
     match = re.search(r'xmlns:(ns\d+)="http://schemas.android.com/apk/res/android"', manifest_content)
     if match:
         incorrect_prefix = match.group(1)  # Extracts nsX (e.g., ns0)
-        print(f"🔄 Replacing '{incorrect_prefix}' with 'android' in {manifest_path}...")
+        print(f"🔄 Replacing '{incorrect_prefix}' with 'android' in {Config.get_manifest_path()}...")
 
         # Replace all occurrences of nsX: with android:
         manifest_content = manifest_content.replace(f"{incorrect_prefix}:", "android:")
@@ -270,7 +271,7 @@ def fix_manifest_namespaces(manifest_path):
         # Replace namespace declaration
         manifest_content = manifest_content.replace(f'xmlns:{incorrect_prefix}=', 'xmlns:android=')
 
-        with open(manifest_path, "w", encoding="utf-8") as file:
+        with open(Config.get_manifest_path(), "w", encoding="utf-8") as file:
             file.write(manifest_content)
 
         print("Namespace issue fixed.")
@@ -318,7 +319,7 @@ def find_smali_file(class_name):
     - Skips missing directories gracefully
     """
     class_path = class_name.replace(".", "/") + ".smali"
-    smali_folders = glob.glob(os.path.join(path_to_extracted_folder, "smali*"))
+    smali_folders = glob.glob(os.path.join(Config.get_extracted_folder(), "smali*"))
 
     exact_match = None
     numbered_match = None
@@ -374,12 +375,12 @@ def modify_smali_values(smali_file):
 def runCommandToCompileApk(task_thread):
     # Construct the apktool command
     try:
-        result = subprocess.run(['apktool', 'b', '-o', extracted_apk, path_to_extracted_folder],
+        result = subprocess.run(['apktool', 'b', '-o', Config.get_modified_apk(), Config.get_extracted_folder()],
                                 stderr=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 text=True)
 
-        #command = ["apktool", "b", "-o", extracted_apk, path_to_extracted_folder]
+        #command = ["apktool", "b", "-o", Config.get_modified_apk(), Config.get_extracted_folder()]
         # Run the apktool command using subprocess
         #subprocess.run(command)
         print(result)
@@ -388,7 +389,7 @@ def runCommandToCompileApk(task_thread):
             errors = result.stderr
             return errors
         else:
-            if file_exists(extracted_apk):
+            if file_exists(Config.get_modified_apk()):
                 return ""
             else:
                 updateStatus(task_thread, f"Compilation failed with error")
@@ -401,12 +402,12 @@ def runCommandToCompileApk(task_thread):
 def runCommandToCompileApkIgnoringResources(task_thread):
     # Construct the apktool command
     try:
-        result = subprocess.run(['apktool', 'b', '--no-res', '-o' ,extracted_apk, path_to_extracted_folder],
+        result = subprocess.run(['apktool', 'b', '--no-res', '-o' ,Config.get_modified_apk(), Config.get_extracted_folder()],
                                 stderr=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 text=True)
 
-        #command = ["apktool", "b", "-o", extracted_apk, path_to_extracted_folder]
+        #command = ["apktool", "b", "-o", Config.get_modified_apk(), Config.get_extracted_folder()]
         # Run the apktool command using subprocess
         #subprocess.run(command)
         print(result)
@@ -415,7 +416,7 @@ def runCommandToCompileApkIgnoringResources(task_thread):
             errors = result.stderr
             return errors
         else:
-            if file_exists(extracted_apk):
+            if file_exists(Config.get_modified_apk()):
                 return ""
             else:
                 updateStatus(task_thread, f"Compilation failed with error")
@@ -455,11 +456,11 @@ def removeReferencesFromPublicXmlfile1(problematic_files):
     file_names = [os.path.splitext(os.path.basename(path))[0] for path in problematic_files]
     
     # Read the XML file
-    with open(public_xml_file_path, 'r') as file:
+    with open(Config.get_public_xml_path(), 'r') as file:
         lines = file.readlines()
     
     # Open the file again to write the changes
-    with open(public_xml_file_path, 'w') as file:
+    with open(Config.get_public_xml_path(), 'w') as file:
         for line in lines:
             # Assuming that the XML line format is: <public type="drawable" name="ic_jazz" id=" />
             if any(f'<public type="drawable" name="{file_name}"' in line for file_name in file_names):
@@ -480,16 +481,16 @@ def removeReferencesFromPublicXmlfile(problematic_files):
     # Extract file names without extension
     file_names = [os.path.splitext(os.path.basename(path))[0] for path in problematic_files]
     
-    if not os.path.exists(public_xml_file_path):
+    if not os.path.exists(Config.get_public_xml_path()):
         #print(f"Public XML file not found: {public_xml_file_path}. Skipping.")
         return
 
     # Read the XML file
-    with open(public_xml_file_path, 'r') as file:
+    with open(Config.get_public_xml_path(), 'r') as file:
         lines = file.readlines()
     
     # Open the file again to write the changes
-    with open(public_xml_file_path, 'w') as file:
+    with open(Config.get_public_xml_path(), 'w') as file:
         for line in lines:
             # Check if the line contains a reference to any of the problematic files for the specified types
             if any(f'<public type="{type_to_remove}" name="{file_name}"' in line 
@@ -516,7 +517,7 @@ def removeResourceReferences(problematic_files, resource_types=None):
         r'@\b(?:{})\b/({})'.format('|'.join(resource_types), '|'.join(re.escape(name) for name in file_names))
     )
 
-    xml_files = find_xml_files(res_directory_path)
+    xml_files = find_xml_files(Config.get_res_folder())
 
     for file_path in xml_files:
         with open(file_path, 'r') as file:
@@ -550,7 +551,7 @@ def file_exists(filepath):
 
 def runcompileDecodedApk(task_thread):
     try:
-        result = subprocess.run(['apktool', 'b', '-o' , decoded_apk, path_to_extracted_folder],
+        result = subprocess.run(['apktool', 'b', '-o' , Config.get_decoded_apk(), Config.get_extracted_folder()],
                                 stderr=subprocess.PIPE,
                                 stdout=subprocess.PIPE,
                                 text=True, check=True)
@@ -561,7 +562,7 @@ def runcompileDecodedApk(task_thread):
             errors = result.stderr
             return errors, result.returncode
         else:
-            if file_exists(extracted_apk):
+            if file_exists(Config.get_modified_apk()):
                 return "", result.returncode
             else:
                 updateStatus(task_thread, f"Compilation failed with error")
@@ -574,7 +575,7 @@ def runcompileDecodedApk(task_thread):
 
 def compileDecodedApk(task_thread, is_file_rollback, retries=6):
     updateStatus(task_thread, " ----- REASSEMBLE APP ----- ")
-    if path_to_extracted_folder:
+    if Config.get_extracted_folder():
         # Construct the apktool command
 
         for attempt in range(retries):
@@ -591,7 +592,7 @@ def compileDecodedApk(task_thread, is_file_rollback, retries=6):
 
         # Check the result for success or failure
         if returncode and returncode == 0:
-            if file_exists(decoded_apk):
+            if file_exists(Config.get_decoded_apk()):
                 return True
             else:
                 updateStatus(task_thread, "APK was not created with an unkown reason")
@@ -602,7 +603,7 @@ def compileDecodedApk(task_thread, is_file_rollback, retries=6):
                 handleCompilationError(task_thread, errors.stderr)
                 errors, returncode = runcompileDecodedApk(task_thread)
                 if returncode == 0:
-                    if file_exists(decoded_apk):
+                    if file_exists(Config.get_decoded_apk()):
                         return True
                     else:
                         updateStatus(task_thread, "APK was not created with an unkown reason")
@@ -643,7 +644,7 @@ def handleCompilationError(task_thread, error_message):
 
 def removeElementsFromManifest(task_thread):
     """Remove specified tags from the AndroidManifest.xml."""
-    tree = ET.parse(manifest_path)
+    tree = ET.parse(Config.get_manifest_path())
     root = tree.getroot()
 
     tags_to_remove = [
@@ -660,7 +661,7 @@ def removeElementsFromManifest(task_thread):
                 remove_tag(child)
 
     remove_tag(root)
-    tree.write(manifest_path, encoding='utf-8', xml_declaration=True)
+    tree.write(Config.get_manifest_path(), encoding='utf-8', xml_declaration=True)
     print(f"All {', '.join(tags_to_remove)} tags removed from the manifest, including nested ones.")
 
 
@@ -668,7 +669,7 @@ def removeAppplicationNameFromManifest():
     """Remove the android:name attribute from the application tag in the AndroidManifest.xml."""
     ET.register_namespace('android', 'http://schemas.android.com/apk/res/android')  # Register namespace
     
-    tree = ET.parse(manifest_path)
+    tree = ET.parse(Config.get_manifest_path())
     root = tree.getroot()
     
     application_node = root.find('application')
@@ -676,7 +677,7 @@ def removeAppplicationNameFromManifest():
         app_name_attr = '{http://schemas.android.com/apk/res/android}name'
         if app_name_attr in application_node.attrib:
             del application_node.attrib[app_name_attr]  # Remove the attribute
-            tree.write(manifest_path, encoding='utf-8', xml_declaration=True)
+            tree.write(Config.get_manifest_path(), encoding='utf-8', xml_declaration=True)
             print("android:name attribute removed from the manifest.")
         else:
             print("No android:name attribute found.")
@@ -734,7 +735,7 @@ def get_launcher_activity(root):
 def addReceiverToManifest(task_thread, relativeClassPath):
     updateStatus(task_thread, " ----- ADD RECEIVER / ACTIVITY TO MANIFEST ----- ")
     # Read the original manifest content
-    with open(manifest_path, 'r', encoding='utf-8') as file:
+    with open(Config.get_manifest_path(), 'r', encoding='utf-8') as file:
         manifest_content = file.read()
 
     # Add targetSdkVersion if missing
@@ -778,20 +779,20 @@ def addReceiverToManifest(task_thread, relativeClassPath):
     )
 
     # Write the modified content back to the manifest file
-    with open(manifest_path, 'w', encoding='utf-8') as file:
+    with open(Config.get_manifest_path(), 'w', encoding='utf-8') as file:
         file.write(new_manifest_content)
 
     updateStatus(task_thread, "Receiver added to AndroidManifest.xml.")
 
 def installExtractedApk(task_thread, appPackageName):
     updateStatus(task_thread, " ----- INSTALL EXTRACTED APK ----- ")
-    if extracted_apk:
+    if Config.get_modified_apk():
         # Uninstall app if already installed on the device
         if isPackageInstalled(appPackageName):
             uninstallPackage(appPackageName)
 
         # Construct the adb install command
-        command = ["adb", "install", extracted_apk]
+        command = ["adb", "install", Config.get_modified_apk()]
 
         # Run the adb install command using subprocess
         result = subprocess.run(command, capture_output=True, text=True)
@@ -933,7 +934,7 @@ def hasAllPermissionsGiven(package_name):
 def extractPermissionsFromManifest():
     permissions = []
     try:
-        tree = ET.parse(manifest_path)
+        tree = ET.parse(Config.get_manifest_path())
         root = tree.getroot()
         for elem in root.iter():
             if elem.tag.endswith("uses-permission"):

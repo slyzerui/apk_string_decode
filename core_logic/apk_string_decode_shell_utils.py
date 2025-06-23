@@ -1,5 +1,7 @@
-from core_logic.apk_string_decode_consts import path_to_extracted_folder, keystore_name, keystore_password, key_alias, first_name, last_name, extracted_apk, decoded_apk
+from core_logic.apk_string_decode_consts import keystore_name, keystore_password, key_alias, first_name, last_name
 from core_logic.apk_string_decode_logic_utils import updateStatus
+from core_logic.apk_string_decode_config import Config
+
 import os
 import subprocess
 
@@ -21,7 +23,7 @@ def decompileLastApk(task_thread, last_apk):
     updateStatus(task_thread, " ----- DECOMPILE APK ----- ")
     if last_apk:
         # Construct the apktool command
-        command = ["apktool", "d", "-o", path_to_extracted_folder, last_apk, "-f"]
+        command = ["apktool", "d", "-o", Config.get_extracted_folder(), last_apk, "-f"]
         
         # Run the apktool command using subprocess
         subprocess.run(command)
@@ -32,8 +34,8 @@ def decompileLastApkWithoutResources(task_thread, last_apk):
     updateStatus(task_thread, " ----- DECOMPILE APK WITHOUT RESOURCES ----- ")
     if last_apk:
         # Construct the apktool command
-        #command = ["apktool", "d", last_apk, "-r", "-o", path_to_extracted_folder]
-        command = ["apktool", "d", last_apk, "-o", path_to_extracted_folder, "-f", "-resm", "dummy"]
+        #command = ["apktool", "d", last_apk, "-r", "-o", Config.get_extracted_folder()]
+        command = ["apktool", "d", last_apk, "-o", Config.get_extracted_folder(), "-f", "-resm", "dummy"]
         #-resm <mode>
         
         # Run the apktool command using subprocess
@@ -64,18 +66,18 @@ def generateKeystore(task_thread):
 def signExtractedApk(task_thread):
     updateStatus(task_thread, " ----- SIGN EXTRACTED APK ----- ")
     try:
-        signApk(extracted_apk)
+        signApk(Config.get_modified_apk())
     except subprocess.CalledProcessError as e:
-        updateStatus(task_thread, f'Error signning {extracted_apk}: {e}')
+        updateStatus(task_thread, f'Error signning {Config.get_modified_apk()}: {e}')
         return False
     return True
     
 def signDecodedApk(task_thread):
     updateStatus(task_thread, " ----- SIGN DECODED APK ----- ")
     try:
-        signApk(decoded_apk)
+        signApk(Config.get_decoded_apk())
     except subprocess.CalledProcessError as e:
-        updateStatus(task_thread, f'Error signning {extracted_apk}: {e}')
+        updateStatus(task_thread, f'Error signning {Config.get_modified_apk()}: {e}')
         return False
     return True
         
