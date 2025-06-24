@@ -144,7 +144,7 @@ def getArguments(arg_list=None):
     if args.multi_processing is not None:
         args.multi_processing = True if args.multi_processing.lower() == 'true' else False
     else:
-        args.multi_processing = False
+        args.multi_processing = True
 
     if args.file_rollback is not None:
         args.file_rollback = True if args.file_rollback.lower() == 'true' else False
@@ -159,7 +159,7 @@ def getArguments(arg_list=None):
     if args.complex_flow is not None:
         args.complex_flow = True if args.complex_flow.lower() == 'true' else False
     else:
-        args.complex_flow = False
+        args.complex_flow = True
 
     if args.clean_static_variables is not None:
         args.clean_static_variables = True if args.clean_static_variables.lower() == 'true' else False
