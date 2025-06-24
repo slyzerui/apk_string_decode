@@ -7,9 +7,29 @@
 - Provide an apk path, 
 ## 🚀 Getting Started
 
-### Prerequisites
+## 🔧 Requirements
 
-- TODO
+Make sure the following tools are installed and available in your system's PATH:
+
+- [apktool](https://apktool.org/) — Used for decompiling APKs
+- [apksigner](https://developer.android.com/studio/command-line/apksigner) — Part of Android SDK Build Tools
+- `keytool` — Comes with the Java Development Kit (JDK); used to generate keystores for APK signing
+
+### Check installation:
+
+```bash
+apktool --version
+apksigner --version
+keytool --version
+```
+
+### PATH Setup Example (macOS/Linux):
+
+```bash
+export PATH="$PATH:/Users/YOUR_USERNAME/Library/Android/sdk/build-tools/34.0.0/"
+```
+
+
 
 ### Installation
 
@@ -21,10 +41,7 @@ git clone https://github.com/slyzerui/apk_string_decode.git
 cd apk_string_decode
 
 # TODO Set up environment / install dependencies
-
-
 ```
----
 
 ## 🧪 Usage
 python main.py  --path <apk_path> --java_signature <java_signature>

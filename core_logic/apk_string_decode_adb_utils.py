@@ -70,9 +70,30 @@ def checkPreRequesites(main_logic_interface):
         main_logic_interface.showWarnMessage("No Android devices found. Please attach a device and start again.")
         sys.exit()  # Exit the script
 
-    if not isApksignerAvailable(main_logic_interface):
-        main_logic_interface.showWarnMessage("Apksigner is not available, please install it")
+    if not isApkToolAvailable(main_logic_interface):
+        main_logic_interface.showWarnMessage("ApkTool is not available, please install it or correctly added to PATH")
         sys.exit()  # Exit the script
+
+    if not isApksignerAvailable(main_logic_interface):
+        main_logic_interface.showWarnMessage("Apksigner is not available, please install it or correctly added to PATH")
+        sys.exit()  # Exit the script
+
+def isApkToolAvailable(main_logic_interface):
+    try:
+        # Attempt to execute 'apksigner --version' command
+        subprocess.run(["apktool", "--version"], check=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        print("apksigner is available.")
+        return True
+    except subprocess.CalledProcessError:
+        intial_message = "apktool is not installed correctly or not added to PATH."
+        return False
+    except FileNotFoundError:
+        intial_message = "apksigner command is not available. please install it or add to PATH."
+
+    main_logic_interface.showWarnMessage(intial_message + "\n\n" + apksigner_installation)
+    
+    return False    
+    
 
 def isApksignerAvailable(main_logic_interface):
     try:
