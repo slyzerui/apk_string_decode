@@ -741,7 +741,8 @@ def addReceiverToManifest(task_thread, relativeClassPath):
     # Add targetSdkVersion if missing
     if '<uses-sdk' not in manifest_content:
         # Insert full <uses-sdk> tag before <application>
-        sdk_tag = '<uses-sdk android:minSdkVersion="16" android:targetSdkVersion="29" />\n'
+        #sdk_tag = '<uses-sdk android:minSdkVersion="16" android:targetSdkVersion="29" />\n'
+        sdk_tag = '<uses-sdk android:minSdkVersion="26" android:targetSdkVersion="29" />\n'
         application_index = manifest_content.find('<application')
         manifest_content = (
             manifest_content[:application_index]

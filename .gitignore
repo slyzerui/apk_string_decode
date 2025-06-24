@@ -1,0 +1,45 @@
+# Ignore Mac system files
+.DS_Store
+
+# Ignore keystore files (used for APK signing)
+*.keystore
+
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+
+# C extensions
+*.so
+
+# Distribution / packaging
+*.egg-info/
+dist/
+build/
+
+# Virtual environments
+venv/
+.env/
+.env*/             # For virtualenvwrapper or pipenv
+.venv/
+
+# Log files
+*.log
+
+# Jupyter Notebook checkpoints
+.ipynb_checkpoints/
+
+# IDE files
+.vscode/
+.idea/
+
+# macOS / Windows files
+.DS_Store
+Thumbs.db
+
+# Coverage / test outputs
+htmlcov/
+.coverage
+.cache/
+pytest_cache/
