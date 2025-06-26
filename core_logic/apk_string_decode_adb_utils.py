@@ -75,7 +75,9 @@ def checkPreRequesites(main_logic_interface):
         sys.exit()  # Exit the script
 
     if not isApksignerAvailable(main_logic_interface):
-        main_logic_interface.showWarnMessage("Apksigner is not available, please install it or correctly added to PATH")
+        main_logic_interface.showWarnMessage("Apksigner is not available, please install it or correctly added to PATH ()\n"
+                                             'Example:\n\n'
+                        '    export PATH="$PATH:/Users/YOUR_USERNAME/Library/Android/sdk/build-tools/"\n')
         sys.exit()  # Exit the script
 
 def isApkToolAvailable(main_logic_interface):

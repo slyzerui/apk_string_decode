@@ -594,7 +594,8 @@ def generateRegexForCollectingParametersBasedOnSignature(java_signature, package
     # Start building the regex pattern for loading instructions
     regex_patterns = [
         rf'const-string(?:/jumbo)?\s+(\w+\d+),\s+"([^"]+)"' if param == 'String' else
-        r'const/(4|16|32) (\w\d+), -?\d+' if param == 'int' else
+        #r'const/(4|16|32) (\w\d+), -?\d+' if param == 'int' else
+        r'\s*' + r'const/(4|16|32) (\w\d+), (-?0x[\da-fA-F]+|-?\d+)' if param == 'int' else
         r'const/4 (\w\d+), 0x[01]' if param == 'boolean' else
         r'const-wide\s+(\w+\d+),\s+(-?0x[\da-fA-F]+L)' if param == 'long' else
         'UNKNOWN'
@@ -631,8 +632,8 @@ def generateRegexForCollectingParametersBasedOnSignatureComplexAnalysis(java_sig
     # Build regex patterns for each parameter type
     const_value_patterns_array = [
         r'\s*' + rf'const-string(?:/jumbo)?\s+(\w+\d+),\s+"([^"]+)"' if param == 'String' else
-        #r'\s*' + r'const/(4|16|32) (\w\d+), -?\d+' if param == 'int' else
-        r'\s*' + r'const/(4|16|32) (\w\d+), (-?\d+)' if param == 'int' else
+        #r'\s*' + r'const/(4|16|32) (\w\d+), (-?\d+)' if param == 'int' else
+        r'\s*' + r'const/(4|16|32) (\w\d+), (-?0x[\da-fA-F]+|-?\d+)' if param == 'int' else
         r'\s*' + r'const/4 (\w\d+), 0x[01]' if param == 'boolean' else
         r'\s*' + r'const-wide\s+(\w+\d+),\s+(-?0x[\da-fA-F]+L)' if param == 'long' else
         r'\s*fill-array-data\s+(\w\d+),\s+(:\w[\w\d_]*)' if param == 'byte[]' else
@@ -774,6 +775,8 @@ def handleMatchedValueAndEncryptionComplexAnalysis(smali_code, invoke_match, con
 
         variable_values = [None] * len(variables)
 
+        byte_array_labels = {}  # Temporarily store labels like :array_1
+
         # Process each variable individually to avoid mismatched associations
         for idx, (variable, pattern) in enumerate(zip(variables, const_value_regex_patterns_compiled_array)):
             for line in reversed(pre_lines):
@@ -786,7 +789,9 @@ def handleMatchedValueAndEncryptionComplexAnalysis(smali_code, invoke_match, con
                     param_type = param_types[idx].strip()
 
                     if param_type == "byte[]":
-                        matched_variable = match.group(2) or match.group(3)  # Use group(2) or group(3) for byte[]
+                        #matched_variable = match.group(2) or match.group(3)  # Use group(2) or group(3) for byte[]
+                        matched_variable = match.group(1)  # e.g., v2
+                        array_label = match.group(2) if len(match.groups()) > 1 else None  # e.g., :array_1
                     elif param_type == "int":
                         matched_variable = match.group(2)  # This should be v0, v1, etc.
                     else:
@@ -795,25 +800,26 @@ def handleMatchedValueAndEncryptionComplexAnalysis(smali_code, invoke_match, con
                     # Ensure the matched variable corresponds to the current variable
                     if matched_variable == variable:
                         if param_type == "byte[]":
-                            variable_values[idx] = match.group(2) or match.group(3)
+                            #variable_values[idx] = match.group(2) or match.group(3)
+                            byte_array_labels[variable] = array_label  # store label like :array_1
                         elif param_type == "int":
                             variable_values[idx] = match.group(3) 
                         else:
                             variable_values[idx] = match.group(2)
                         break
 
-        # Handle byte[] values requiring special processing (e.g., fill-array-data)
         for idx, param_type in enumerate(param_types):
             param_type = param_type.strip()
             if param_type == "byte[]":
                 array_register = variables[idx]
 
-                # Check if the value is a reference (e.g., starts with ':') or invalid
-                if variable_values[idx] is None or (isinstance(variable_values[idx], str) and variable_values[idx].startswith(':')):
-                    # Extract the array data using custom logic
-                    array_data = extractFillArrayData(smali_code.split('\n'), array_register)
-                    if array_data is not None:
-                        variable_values[idx] = array_data
+                if array_register in byte_array_labels:
+                    array_label = byte_array_labels[array_register]
+                    if array_label:
+                        array_data = extractFillArrayData(smali_code.split('\n'), array_label)
+                        if array_data is not None:
+                            variable_values[idx] = array_data
+
 
         # Filter out None values from variable_values
         non_none_values = [value for value in variable_values if value is not None]
@@ -834,7 +840,7 @@ def handleMatchedValueAndEncryptionComplexAnalysis(smali_code, invoke_match, con
     return encoded_value_literal, encoded_value_sanitize
 
 
-def extractFillArrayData(lines, array_register):
+def extractFillArrayData1(lines, array_register):
     """
     Extract array data associated with a given register from the Smali code.
     Handles both inline data and references like :array_X, which can appear
@@ -866,6 +872,29 @@ def extractFillArrayData(lines, array_register):
                 break  # End of the array-data block
             else:
                 array_data.append(line)  # Collect array data
+
+    return array_data if array_data else None
+
+
+def extractFillArrayData(lines, array_label):
+    """
+    Extract array data associated with a given array label from the Smali code.
+    The label (e.g., :array_1) should point to a .array-data block somewhere in the code.
+    """
+    in_array_data = False
+    array_data = []
+
+    for line in lines:
+        stripped_line = line.strip()
+        if stripped_line == array_label:
+            in_array_data = True
+        elif in_array_data:
+            if stripped_line.startswith('.array-data'):
+                continue  # skip directive
+            elif stripped_line.startswith('.end array-data'):
+                break
+            else:
+                array_data.append(stripped_line)
 
     return array_data if array_data else None
 
@@ -1787,7 +1816,8 @@ def generateGenericRegexForReplacingParametersBasedOnSignatureComplex(java_signa
     const_value_patterns_array = [
         r'\s*' + rf'const-string(?:/jumbo)?\s+(\w+\d+),\s+"([^"]+)"' if param == 'String' else
         #r'\s*' + r'const/(4|16|32) (\w\d+), -?\d+' if param == 'int' else
-        r'\s*' + r'const/(4|16|32) (\w\d+), (-?\d+)' if param == 'int' else
+        #r'\s*' + r'const/(4|16|32) (\w\d+), (-?\d+)' if param == 'int' else
+        r'\s*' + r'const/(4|16|32) (\w\d+), (-?0x[\da-fA-F]+|-?\d+)' if param == 'int' else
         r'\s*' + r'const/4 (\w\d+), 0x[01]' if param == 'boolean' else
         r'\s*' + r'const-wide\s+(\w+\d+),\s+(-?0x[\da-fA-F]+L)' if param == 'long' else
         r'\s*fill-array-data\s+(\w\d+),\s+(:\w[\w\d_]*)' if param == 'byte[]' else
